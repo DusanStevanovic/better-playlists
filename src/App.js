@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import logo from './logo.svg';
 import './App.css';
-import queryString from 'query-string';
+import queryString from './query-string';
 
 
 let fakeServerData = {
