@@ -86,13 +86,15 @@ class Playlist extends Component {
   render() {
     let playlist = this.props.playlist;
     return (
-      <ul>
-        <li key={playlist.id}>
+      <div style={{ display: 'inline-block', width: '25%' }}>
         <h3>{playlist.name}</h3>
         <img src={playlist.images} />
-        <a href={playlist.href} style={{border: '1px solid #000', padding: '20px', background: '#ffffff'}}>Click Here !</a>
-        </li>
-      </ul>
+        <ul>
+          {playlist.songs.map(song =>
+            <li>{song.name}</li>
+          )}
+        </ul>
+      </div>
     );
   }
 }
@@ -110,6 +112,10 @@ class App extends Component {
     let parsed = queryString.parse(window.location.search);
     let accessToken = parsed.access_token;
 
+    if (!accessToken) {
+      return;
+    }
+
     fetch('https://api.spotify.com/v1/me', {
       headers: {'Authorization': 'Bearer ' + accessToken}
     }).then(response => response.json())
@@ -122,14 +128,41 @@ class App extends Component {
     fetch('https://api.spotify.com/v1/browse/featured-playlists', {
       headers: {'Authorization': 'Bearer ' + accessToken}
     }).then(response => response.json())
-    .then(data => this.setState({
-      playlists: data.playlists.items.map(item => ({
-        name: item.name,
-        songs: [],
-        href: item.href,
-        id: item.id,
-        images: item.images[0].url
-      }))
+    .then(playlistData => {
+      let playlists = playlistData.playlists.items
+      let trackDataPromises = playlists.map(playlist => {
+        let responsePromise = fetch(playlist.tracks.href, {
+          headers: {'Authorization': 'Bearer ' + accessToken}
+        })
+        let trackDataPromise = responsePromise
+          .then(response => response.json())
+        return trackDataPromise
+      })
+      let allTracksDatasPromises = 
+        Promise.all(trackDataPromises)
+        let playlistsPromise =  allTracksDatasPromises.then(trackDatas => {
+          trackDatas.forEach((trackData, i) => {
+            playlists[i].trackDatas = trackData.items
+              .map(item => item.track)
+              .map(trackData => ({
+                name: trackData.name,
+                duration: trackData.duration_ms / 1000
+              }))
+          })
+        return playlists
+      })
+      return playlistsPromise
+    })
+    .then(playlists => this.setState({
+      playlists: playlists.map(item => {
+        return {
+          name: item.name,
+          songs: item.trackDatas.slice(0, 3),
+          href: item.href,
+          id: item.id,
+          images: item.images[0].url
+        }
+      })
     }))
 
   }
